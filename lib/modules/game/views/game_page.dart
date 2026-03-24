@@ -5,9 +5,9 @@ import 'package:get/get.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/fusion_colors.dart';
-import '../../../core/widgets/fusion_button.dart';
 import '../../../core/widgets/settings_sheet.dart';
 import '../controllers/game_controller.dart';
+import '../models/game_mode.dart';
 import '../models/move_direction.dart';
 import '../widgets/board_view.dart';
 import '../widgets/game_overlay.dart';
@@ -25,7 +25,16 @@ class _GamePageState extends State<GamePage> {
   static const double _directionRatio = 1.05;
   static const double _flickVelocityThreshold = 360;
 
-  final GameController _controller = Get.put(GameController());
+  late final GameController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final args = Get.arguments;
+    final modeId = args is Map<String, dynamic> ? args['modeId'] as String? : null;
+    final mode = GameModes.fromId(modeId);
+    _controller = Get.put(GameController(mode: mode));
+  }
 
   Offset? _start;
   Offset? _last;
@@ -82,6 +91,112 @@ class _GamePageState extends State<GamePage> {
     }
 
     return true;
+  }
+
+  Future<void> _confirmNewGame() async {
+    final shouldRestart = await Get.dialog<bool>(
+      AlertDialog(
+        backgroundColor: FusionColors.bg1,
+        title: const Text(
+          'Start a new game?',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Your current board and score will be lost.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Get.back(result: false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Get.back(result: true),
+            style: FilledButton.styleFrom(
+              backgroundColor: FusionColors.accent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('New Game'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+
+    if (shouldRestart == true) {
+      _controller.onNewGamePressed();
+    }
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final mm = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
+  Future<void> _showHowToPlayDialog() async {
+    await Get.dialog<void>(
+      AlertDialog(
+        backgroundColor: FusionColors.bg1,
+        title: const Text(
+          'How to play',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'Swipe to slide all tiles. Equal values merge once per move. '
+          'After every valid move, one new tile appears.',
+          style: TextStyle(color: Colors.white70, height: 1.35),
+        ),
+        actions: <Widget>[
+          FilledButton(
+            onPressed: () => Get.back<void>(),
+            style: FilledButton.styleFrom(
+              backgroundColor: FusionColors.accent2,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Got it'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
+    );
+  }
+
+  Widget _bottomActionButton({
+    required IconData icon,
+    required String text,
+    required VoidCallback? onPressed,
+    Color? accentColor,
+  }) {
+    final enabled = onPressed != null;
+    final fg = enabled ? (accentColor ?? Colors.white) : Colors.white38;
+
+    return Material(
+      color: FusionColors.card,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onPressed,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Icon(icon, size: 17, color: fg),
+              const SizedBox(width: 7),
+              Text(
+                text,
+                style: TextStyle(
+                  color: fg,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -162,7 +277,7 @@ class _GamePageState extends State<GamePage> {
                           color: FusionColors.card,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: FusionColors.cardBorder.withOpacity(0.35),
+                            color: FusionColors.cardBorder.withValues(alpha: 0.35),
                           ),
                         ),
                         child: Row(
@@ -190,6 +305,25 @@ class _GamePageState extends State<GamePage> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: FusionColors.card,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: FusionColors.cardBorder.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Text(
+                      _controller.mode.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   SettingsButton(
                     onPressedOverride: () {
                       showSettingsSheet();
@@ -197,6 +331,99 @@ class _GamePageState extends State<GamePage> {
                   ),
                 ],
               ),
+              const SizedBox(height: 10),
+              Row(
+                children: <Widget>[
+                  Expanded(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: FusionColors.card,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: FusionColors.cardBorder.withValues(alpha: 0.65),
+                        ),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            blurRadius: 14,
+                            color: FusionColors.accent.withValues(alpha: 0.18),
+                            offset: const Offset(0, 7),
+                          ),
+                        ],
+                      ),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(14),
+                          onTap: _confirmNewGame,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: <Widget>[
+                                Icon(Icons.refresh_rounded, size: 18, color: Colors.white),
+                                SizedBox(width: 8),
+                                Text(
+                                  'New Game',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _bottomActionButton(
+                    icon: Icons.help_outline_rounded,
+                    text: 'How to play',
+                    onPressed: _showHowToPlayDialog,
+                  ),
+                ],
+              ),
+              if (_controller.mode.durationSeconds != null) ...<Widget>[
+                const SizedBox(height: 10),
+                Obx(
+                  () => Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: FusionColors.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: FusionColors.cardBorder.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      children: <Widget>[
+                        const Icon(Icons.timer_outlined, size: 18, color: Colors.white70),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Time Left',
+                          style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          _formatDuration(_controller.timeRemainingSeconds.value),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 10),
               Expanded(
                 child: Center(
@@ -220,12 +447,15 @@ class _GamePageState extends State<GamePage> {
                           showWin: _controller.showWinOverlay.value,
                           showGameOver: _controller.showGameOverOverlay.value,
                           canUndo: _controller.canUndo.value,
+                          canShuffle: _controller.canShuffle.value,
                           onUndo: _controller.undoLastMove,
+                          onShuffle: _controller.useShufflePowerUp,
                           targetValue: _controller.targetValue.value,
+                          gameOverMessage: _controller.gameOverMessage.value,
                           score: _controller.score.value,
                           bestScore: _controller.bestScore.value,
                           onContinue: _controller.continueAfterWin,
-                          onRestart: _controller.onNewGamePressed,
+                          onRestart: _confirmNewGame,
                         ),
                       ),
                     ],
@@ -235,43 +465,26 @@ class _GamePageState extends State<GamePage> {
               const SizedBox(height: 12),
               Row(
                 children: <Widget>[
-                  Expanded(
-                    child: FusionSecondaryButton(
-                      text: 'New Game',
-                        onPressed: _controller.onNewGamePressed,
+                  Obx(
+                    () => _bottomActionButton(
+                      icon: Icons.shuffle_rounded,
+                      text: _controller.canShuffle.value ? 'Shuffle x1' : 'Shuffle used',
+                      onPressed: _controller.canShuffle.value
+                          ? _controller.useShufflePowerUp
+                          : null,
+                      accentColor: FusionColors.accent,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 10),
+                  const Spacer(),
                   Obx(
-                    () => IconButton(
-                      tooltip: 'Undo last move',
+                    () => _bottomActionButton(
+                      icon: Icons.undo_rounded,
+                      text: 'Undo',
                       onPressed: _controller.canUndo.value
                           ? _controller.undoLastMove
                           : null,
-                      icon: Icon(
-                        Icons.undo_rounded,
-                        color: _controller.canUndo.value
-                            ? FusionColors.accent2
-                            : Colors.white38,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Swipe instructions',
-                    onPressed: () {
-                      Get.defaultDialog(
-                        title: 'How to play',
-                        middleText:
-                            'Swipe to slide all tiles. Equal values merge once per move. After every valid move, one new tile spawns.',
-                        textConfirm: 'Got it',
-                        confirmTextColor: Colors.white,
-                        buttonColor: FusionColors.accent2,
-                      );
-                    },
-                    icon: const Icon(
-                      Icons.help_outline_rounded,
-                      color: Colors.white70,
+                      accentColor: FusionColors.accent2,
                     ),
                   ),
                 ],

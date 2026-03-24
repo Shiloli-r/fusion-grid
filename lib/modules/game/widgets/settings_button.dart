@@ -17,7 +17,7 @@ class SettingsButton extends StatelessWidget {
     return IconButton(
       icon: Icon(
         Icons.settings_rounded,
-        color: Colors.white.withOpacity(0.9),
+        color: Colors.white.withValues(alpha: 0.9),
       ),
       splashRadius: compact ? 18 : 22,
       onPressed: onPressedOverride ??

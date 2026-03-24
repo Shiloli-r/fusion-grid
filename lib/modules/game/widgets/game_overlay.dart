@@ -7,8 +7,11 @@ class GameOverlay extends StatelessWidget {
   final bool showWin;
   final bool showGameOver;
   final bool canUndo;
+  final bool canShuffle;
   final VoidCallback? onUndo;
+  final VoidCallback? onShuffle;
   final int targetValue;
+  final String? gameOverMessage;
   final VoidCallback onContinue;
   final VoidCallback onRestart;
   final int score;
@@ -19,8 +22,11 @@ class GameOverlay extends StatelessWidget {
     required this.showWin,
     required this.showGameOver,
     required this.canUndo,
+    required this.canShuffle,
     required this.onUndo,
+    required this.onShuffle,
     required this.targetValue,
+    this.gameOverMessage,
     required this.onContinue,
     required this.onRestart,
     required this.score,
@@ -36,7 +42,7 @@ class GameOverlay extends StatelessWidget {
 
     return Positioned.fill(
       child: Container(
-        color: Colors.black.withOpacity(0.52),
+        color: Colors.black.withValues(alpha: 0.52),
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 380),
@@ -44,7 +50,7 @@ class GameOverlay extends StatelessWidget {
               decoration: BoxDecoration(
                 color: FusionColors.bg1,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: FusionColors.cardBorder.withOpacity(0.5)),
+                border: Border.all(color: FusionColors.cardBorder.withValues(alpha: 0.5)),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
@@ -65,7 +71,9 @@ class GameOverlay extends StatelessWidget {
                     Text(
                       showWin
                           ? 'You reached $targetValue. Keep going!'
-                          : 'No moves left. Your score: $score',
+                          : (gameOverMessage?.isNotEmpty == true
+                              ? gameOverMessage!
+                              : 'No moves left. Your score: $score'),
                       style: const TextStyle(
                         fontSize: 14,
                         color: Colors.white70,
@@ -86,6 +94,14 @@ class GameOverlay extends StatelessWidget {
                     if (showWin)
                       Row(
                         children: <Widget>[
+                          if (canShuffle && onShuffle != null)
+                            Expanded(
+                              child: FusionSecondaryButton(
+                                text: 'Shuffle',
+                                onPressed: onShuffle!,
+                              ),
+                            ),
+                          if (canShuffle && onShuffle != null) const SizedBox(width: 12),
                           if (canUndo && onUndo != null)
                             Expanded(
                               child: FusionSecondaryButton(
@@ -105,6 +121,14 @@ class GameOverlay extends StatelessWidget {
                     else
                       Row(
                         children: <Widget>[
+                          if (canShuffle && onShuffle != null)
+                            Expanded(
+                              child: FusionSecondaryButton(
+                                text: 'Shuffle',
+                                onPressed: onShuffle!,
+                              ),
+                            ),
+                          if (canShuffle && onShuffle != null) const SizedBox(width: 12),
                           if (canUndo && onUndo != null)
                             Expanded(
                               child: FusionSecondaryButton(

@@ -51,10 +51,10 @@ class FusionTileTheme {
   // Dedicated palette: each power-of-two value gets its own distinct color.
   // Index 0 corresponds to value 2, index 1 to value 4, etc.
   static const List<Color> tilePalette = <Color>[
-    Color(0xFF2A165C), // 2
-    Color(0xFF4C1E96), // 4
-    Color(0xFF5B2BFF), // 8
-    Color(0xFF7C5CFF), // 16
+    Color(0xFFC8B4FF), // 2
+    Color(0xFF6EE7FF), // 4
+    Color(0xFFFF8AD8), // 8
+    Color(0xFF9DFF8A), // 16
     Color(0xFF6D79FF), // 32
     Color(0xFF35D7FF), // 64
     Color(0xFF22C7FF), // 128
@@ -98,12 +98,12 @@ class FusionTileTheme {
     if (value <= 0) return null;
     // Value-specific border gives tiles a crisp edge without looking flat.
     final base = backgroundForValue(value);
-    return base.withOpacity(0.30);
+    return base.withValues(alpha: 0.30);
   }
 
   Color textColorForValue(int value) {
     final idx = _idxForValue(value);
-    return idx >= 3 ? FusionColors.tileTextLight : FusionColors.tileTextDark;
+    return idx >= 4 ? FusionColors.tileTextLight : FusionColors.tileTextDark;
   }
 
   TextStyle textStyleForValue(int value) {

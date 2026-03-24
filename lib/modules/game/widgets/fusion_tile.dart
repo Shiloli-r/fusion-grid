@@ -117,8 +117,8 @@ class _FusionTileWidgetState extends State<FusionTileWidget>
     final bool isSpawned = widget.tile.effect == TileEffectType.spawned;
 
     final bg = isMerged ? mergedBg : isSpawned ? spawnedBg : baseBg;
-    final mergedBorder = isMerged ? mergedBg.withOpacity(0.75) : null;
-    final spawnedBorder = isSpawned ? spawnedBg.withOpacity(0.45) : null;
+    final mergedBorder = isMerged ? mergedBg.withValues(alpha: 0.75) : null;
+    final spawnedBorder = isSpawned ? spawnedBg.withValues(alpha: 0.45) : null;
 
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 120),
@@ -127,26 +127,31 @@ class _FusionTileWidgetState extends State<FusionTileWidget>
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(theme.tileRadius()),
-        border: Border.all(color: (mergedBorder ?? spawnedBorder ?? border ?? FusionColors.cardBorder.withOpacity(0.35))),
+        border: Border.all(
+          color: (mergedBorder ??
+              spawnedBorder ??
+              border ??
+              FusionColors.cardBorder.withValues(alpha: 0.35)),
+        ),
         boxShadow: <BoxShadow>[
           BoxShadow(
             blurRadius: 14,
             spreadRadius: 0,
-            color: Colors.black.withOpacity(0.25),
+            color: Colors.black.withValues(alpha: 0.25),
             offset: const Offset(0, 10),
           ),
           if (isMerged)
             BoxShadow(
               blurRadius: 26,
               spreadRadius: 0,
-              color: mergedBg.withOpacity(0.35),
+              color: mergedBg.withValues(alpha: 0.35),
               offset: const Offset(0, 0),
             ),
           if (isSpawned)
             BoxShadow(
               blurRadius: 22,
               spreadRadius: 0,
-              color: spawnedBg.withOpacity(0.25),
+              color: spawnedBg.withValues(alpha: 0.25),
               offset: const Offset(0, 0),
             ),
         ],

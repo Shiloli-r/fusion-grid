@@ -19,7 +19,7 @@ class ScoreCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: FusionColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: FusionColors.cardBorder.withOpacity(0.35)),
+        border: Border.all(color: FusionColors.cardBorder.withValues(alpha: 0.35)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,4 @@
-package com.example.fusiongrid
+package com.ronnie.fusiongrid
 
 import io.flutter.embedding.android.FlutterActivity
 

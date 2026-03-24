@@ -11,11 +11,16 @@ import '../../../data/models/app_settings.dart';
 import '../../../data/services/storage_service.dart';
 import '../engine/game_engine.dart';
 import '../models/board_state.dart';
+import '../models/game_mode.dart';
 import '../models/game_step_result.dart';
 import '../models/move_direction.dart';
 import '../models/tile.dart';
 
 class GameController extends GetxController {
+  final GameMode mode;
+
+  GameController({GameMode? mode}) : mode = mode ?? GameModes.classic;
+
   // Reactive UI state.
   final RxInt score = 0.obs;
   final RxInt bestScore = 0.obs;
@@ -24,10 +29,13 @@ class GameController extends GetxController {
   final RxBool showGameOverOverlay = false.obs;
   final RxBool hasWon = false.obs;
   final RxInt targetValue = AppConstants.defaultTargetValue.obs;
+  final RxInt timeRemainingSeconds = 0.obs;
+  final RxString gameOverMessage = ''.obs;
 
   final RxList<Tile> tiles = <Tile>[].obs;
 
   final RxBool canUndo = false.obs;
+  final RxBool canShuffle = true.obs;
 
   // Engine internals.
   late final StorageService _storage;
@@ -41,6 +49,7 @@ class GameController extends GetxController {
   int _latestEffectClearToken = 0;
   bool _pendingGameOverAfterWin = false;
   bool? _hasVibrator;
+  Timer? _timeAttackTimer;
 
   _GameSnapshot? _undoSnapshot;
 
@@ -69,13 +78,16 @@ class GameController extends GetxController {
   }
 
   void restartGame({bool showSpawnAnimation = true}) {
+    _stopTimeAttack();
     _pendingGameOverAfterWin = false;
     _latestEffectClearToken = 0;
     _undoSnapshot = null;
     canUndo.value = false;
+    canShuffle.value = true;
     showWinOverlay.value = false;
     showGameOverOverlay.value = false;
     hasWon.value = false;
+    gameOverMessage.value = '';
 
     score.value = 0;
     _board = BoardState.empty(AppConstants.boardSize);
@@ -102,6 +114,8 @@ class GameController extends GetxController {
     if (token != 0) {
       _scheduleClearEffectsForToken(token);
     }
+
+    _startTimeAttackIfNeeded();
   }
 
   void onSwipe(MoveDirection direction) {
@@ -120,6 +134,7 @@ class GameController extends GetxController {
       direction: direction,
       alreadyWon: hasWon.value,
       targetValue: targetValue.value,
+      spawnFourChance: mode.fourChance,
       nextTileId: _nextTileId,
       effectToken: token,
     );
@@ -165,8 +180,68 @@ class GameController extends GetxController {
     _moveToken = snap.moveToken;
     _latestEffectClearToken = snap.latestEffectClearToken;
     _pendingGameOverAfterWin = snap.pendingGameOverAfterWin;
+    timeRemainingSeconds.value = snap.timeRemainingSeconds;
+    gameOverMessage.value = snap.gameOverMessage;
+    canShuffle.value = snap.canShuffle;
 
     tiles.assignAll(_board.tiles);
+    _ensureTimeAttackTimerRunning();
+  }
+
+  void useShufflePowerUp() {
+    if (!canShuffle.value) return;
+    if (_board.tiles.length < 2) return;
+
+    final sourceTiles = List<Tile>.from(_board.tiles);
+    sourceTiles.shuffle(_engine.random);
+
+    final allCells = <(int, int)>[];
+    for (var r = 0; r < _board.size; r++) {
+      for (var c = 0; c < _board.size; c++) {
+        allCells.add((r, c));
+      }
+    }
+    allCells.shuffle(_engine.random);
+
+    final token = _moveToken++;
+    final grid = List<List<Tile?>>.generate(
+      _board.size,
+      (_) => List<Tile?>.filled(_board.size, null, growable: false),
+      growable: false,
+    );
+
+    for (var i = 0; i < sourceTiles.length; i++) {
+      final tile = sourceTiles[i];
+      final cell = allCells[i];
+      final nr = cell.$1;
+      final nc = cell.$2;
+      grid[nr][nc] = tile.copyWith(
+        row: nr,
+        col: nc,
+        prevRow: tile.row,
+        prevCol: tile.col,
+        effect: TileEffectType.spawned,
+        effectToken: token,
+      );
+    }
+
+    _board = BoardState(size: _board.size, grid: grid);
+    canShuffle.value = false;
+    tiles.assignAll(_board.tiles);
+    _scheduleClearEffectsForToken(token);
+
+    showGameOverOverlay.value = false;
+    gameOverMessage.value = '';
+    hasWon.value = _board.tiles.any((t) => t.value >= targetValue.value);
+
+    if (!_board.hasValidMoves()) {
+      gameOverMessage.value = 'No moves left. Your score: ${score.value}';
+      showGameOverOverlay.value = true;
+      _stopTimeAttack();
+      return;
+    }
+
+    _ensureTimeAttackTimerRunning();
   }
 
   void _handleWinAndGameOver({required GameStepResult step}) {
@@ -183,7 +258,9 @@ class GameController extends GetxController {
     }
 
     if (step.isGameOver) {
+      gameOverMessage.value = 'No moves left. Your score: ${score.value}';
       showGameOverOverlay.value = true;
+      _stopTimeAttack();
     }
   }
 
@@ -197,6 +274,41 @@ class GameController extends GetxController {
 
   void onNewGamePressed() {
     restartGame(showSpawnAnimation: true);
+  }
+
+  void _startTimeAttackIfNeeded() {
+    final duration = mode.durationSeconds;
+    if (duration == null) {
+      timeRemainingSeconds.value = 0;
+      return;
+    }
+
+    timeRemainingSeconds.value = duration;
+    _ensureTimeAttackTimerRunning();
+  }
+
+  void _ensureTimeAttackTimerRunning() {
+    if (mode.durationSeconds == null) return;
+    if (_timeAttackTimer != null) return;
+    if (timeRemainingSeconds.value <= 0) return;
+
+    _timeAttackTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (showGameOverOverlay.value || showWinOverlay.value) return;
+      if (timeRemainingSeconds.value <= 1) {
+        timeRemainingSeconds.value = 0;
+        timer.cancel();
+        _timeAttackTimer = null;
+        gameOverMessage.value = 'Time is up! Your score: ${score.value}';
+        showGameOverOverlay.value = true;
+        return;
+      }
+      timeRemainingSeconds.value -= 1;
+    });
+  }
+
+  void _stopTimeAttack() {
+    _timeAttackTimer?.cancel();
+    _timeAttackTimer = null;
   }
 
   void _maybeUpdateBestScore() async {
@@ -285,7 +397,7 @@ class GameController extends GetxController {
     final r = pick.$1;
     final c = pick.$2;
 
-    final spawnValue = _engine.random.nextInt(10) == 0 ? 4 : 2;
+    final spawnValue = _nextSpawnValue();
 
     final grid2 = List<List<Tile?>>.generate(
       board.size,
@@ -305,6 +417,10 @@ class GameController extends GetxController {
     );
 
     return BoardState(size: board.size, grid: grid2);
+  }
+
+  int _nextSpawnValue() {
+    return _engine.random.nextDouble() < mode.fourChance ? 4 : 2;
   }
 
   BoardState _stripEffectsForSnapshot(BoardState board) {
@@ -327,6 +443,12 @@ class GameController extends GetxController {
 
     return BoardState(size: board.size, grid: nextGrid);
   }
+
+  @override
+  void onClose() {
+    _stopTimeAttack();
+    super.onClose();
+  }
 }
 
 class _GameSnapshot {
@@ -341,6 +463,9 @@ class _GameSnapshot {
   final int moveToken;
   final int latestEffectClearToken;
   final bool pendingGameOverAfterWin;
+  final int timeRemainingSeconds;
+  final String gameOverMessage;
+  final bool canShuffle;
 
   const _GameSnapshot({
     required this.board,
@@ -352,6 +477,9 @@ class _GameSnapshot {
     required this.moveToken,
     required this.latestEffectClearToken,
     required this.pendingGameOverAfterWin,
+    required this.timeRemainingSeconds,
+    required this.gameOverMessage,
+    required this.canShuffle,
   });
 
   factory _GameSnapshot.fromController({
@@ -368,6 +496,9 @@ class _GameSnapshot {
       moveToken: controller._moveToken,
       latestEffectClearToken: controller._latestEffectClearToken,
       pendingGameOverAfterWin: controller._pendingGameOverAfterWin,
+      timeRemainingSeconds: controller.timeRemainingSeconds.value,
+      gameOverMessage: controller.gameOverMessage.value,
+      canShuffle: controller.canShuffle.value,
     );
   }
 }

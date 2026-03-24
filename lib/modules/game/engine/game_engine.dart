@@ -19,6 +19,7 @@ class GameEngine {
     required MoveDirection direction,
     required bool alreadyWon,
     required int targetValue,
+    required double spawnFourChance,
     required int nextTileId,
     required int effectToken,
   }) {
@@ -119,7 +120,7 @@ class GameEngine {
       final spawnRow = pick.$1;
       final spawnCol = pick.$2;
 
-      final spawnValue = _spawnValue();
+      final spawnValue = _spawnValue(spawnFourChance);
       nextId += 1;
 
       final spawnTile = Tile(
@@ -162,10 +163,8 @@ class GameEngine {
     );
   }
 
-  int _spawnValue() {
-    // "Usually 2, smaller chance of 4"
-    // 0 => 4, otherwise 2.
-    return random.nextInt(10) == 0 ? 4 : 2;
+  int _spawnValue(double fourChance) {
+    return random.nextDouble() < fourChance ? 4 : 2;
   }
 
   bool _valuesEqual(List<List<int>> a, List<List<int>> b) {

@@ -96,9 +96,10 @@ class _BoardViewState extends State<BoardView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final side = math.min(constraints.maxWidth, constraints.maxHeight);
-        final cellSize =
-            (side - padding * 2 - gap * (widget.size - 1)) / widget.size;
+        final rawSide = math.min(constraints.maxWidth, constraints.maxHeight);
+        final side = rawSide.isFinite ? rawSide : 0.0;
+        final availableForCells = side - padding * 2 - gap * (widget.size - 1);
+        final cellSize = (availableForCells / widget.size).clamp(1.0, double.infinity);
 
         final board = SizedBox(
           width: side,
