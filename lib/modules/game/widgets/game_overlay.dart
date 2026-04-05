@@ -16,6 +16,8 @@ class GameOverlay extends StatelessWidget {
   final VoidCallback onRestart;
   final int score;
   final int bestScore;
+  final bool newPersonalBest;
+  final VoidCallback? onShareScore;
 
   const GameOverlay({
     super.key,
@@ -31,6 +33,8 @@ class GameOverlay extends StatelessWidget {
     required this.onRestart,
     required this.score,
     required this.bestScore,
+    this.newPersonalBest = false,
+    this.onShareScore,
   });
 
   @override
@@ -81,6 +85,19 @@ class GameOverlay extends StatelessWidget {
                       ),
                       textAlign: TextAlign.center,
                     ),
+                    if (!showWin && newPersonalBest) ...<Widget>[
+                      const SizedBox(height: 12),
+                      Text(
+                        'New personal best!',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: FusionColors.good.withValues(alpha: 0.95),
+                          letterSpacing: 0.2,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     Text(
                       'Best: $bestScore',
@@ -91,6 +108,13 @@ class GameOverlay extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
+                    if (!showWin && newPersonalBest && onShareScore != null) ...<Widget>[
+                      FusionPrimaryButton(
+                        text: 'Share score',
+                        onPressed: onShareScore,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                     if (showWin)
                       Row(
                         children: <Widget>[

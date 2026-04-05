@@ -1,14 +1,37 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../core/services/play_in_app_update_service.dart';
+import '../../../core/services/score_share_service.dart';
 import '../../../core/theme/fusion_colors.dart';
 import '../../../core/widgets/fusion_button.dart';
+import '../../../data/services/storage_service.dart';
 import '../../game/models/game_mode.dart';
 import '../../game/widgets/settings_button.dart';
 import '../../../routes/app_routes.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  String? _openingModeId;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future<void>.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted) return;
+        unawaited(Get.find<PlayInAppUpdateService>().checkOnLaunch());
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,9 +43,21 @@ class HomePage extends StatelessWidget {
           child: Column(
             children: <Widget>[
               Row(
-                children: const <Widget>[
-                  Spacer(),
-                  SettingsButton(compact: true),
+                children: <Widget>[
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Share best score',
+                    onPressed: () async {
+                      final best = await Get.find<StorageService>().getBestScore();
+                      await Get.find<ScoreShareService>().shareBestScore(best);
+                    },
+                    icon: const Icon(Icons.share_rounded, color: Colors.white70),
+                  ),
+                  const SettingsButton(
+                    compact: true,
+                    tooltip: 'Sound & vibration',
+                    icon: Icons.settings_rounded,
+                  ),
                 ],
               ),
               Expanded(
@@ -101,7 +136,7 @@ class HomePage extends StatelessWidget {
                                 ),
                               ),
                               const SizedBox(height: 12),
-                              ...GameModes.all.map(_modeCard),
+                              ...GameModes.all.map((GameMode m) => _modeCard(m)),
                             ],
                           ),
                         ),
@@ -110,6 +145,7 @@ class HomePage extends StatelessWidget {
                           width: double.infinity,
                           child: FusionPrimaryButton(
                             text: 'Play Classic',
+                            loading: _openingModeId == GameModes.classic.id,
                             onPressed: () => _openMode(GameModes.classic),
                           ),
                         ),
@@ -194,22 +230,35 @@ class HomePage extends StatelessWidget {
                     color: Colors.transparent,
                     child: InkWell(
                       borderRadius: BorderRadius.circular(12),
-                      onTap: () => _openMode(mode),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      onTap: _openingModeId != null
+                          ? null
+                          : () => _openMode(mode),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: <Widget>[
-                            Icon(Icons.play_arrow_rounded, size: 16, color: Colors.white),
-                            SizedBox(width: 4),
-                            Text(
-                              'Play',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w900,
+                            if (_openingModeId == mode.id)
+                              const SizedBox(
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            else ...<Widget>[
+                              const Icon(Icons.play_arrow_rounded, size: 16, color: Colors.white),
+                              const SizedBox(width: 4),
+                              const Text(
+                                'Play',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w900,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -236,13 +285,17 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  void _openMode(GameMode mode) {
-    Get.toNamed(
+  Future<void> _openMode(GameMode mode) async {
+    if (!mode.isAvailable || _openingModeId != null) return;
+    setState(() => _openingModeId = mode.id);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    await Get.toNamed(
       AppRoutes.game,
       arguments: <String, dynamic>{
         'modeId': mode.id,
       },
     );
+    if (mounted) setState(() => _openingModeId = null);
   }
 }
 

@@ -6,18 +6,21 @@ class FusionPrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
   final bool enabled;
+  final bool loading;
 
   const FusionPrimaryButton({
     super.key,
     required this.text,
     required this.onPressed,
     this.enabled = true,
+    this.loading = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool busy = loading;
     return Opacity(
-      opacity: enabled ? 1.0 : 0.6,
+      opacity: enabled && !busy ? 1.0 : 0.6,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -42,18 +45,27 @@ class FusionPrimaryButton extends StatelessWidget {
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(16),
-            onTap: enabled ? onPressed : null,
+            onTap: (enabled && !busy) ? onPressed : null,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               child: Center(
-                child: Text(
-                  text,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
+                child: busy
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        text,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ),

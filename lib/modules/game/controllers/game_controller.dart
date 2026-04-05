@@ -31,6 +31,7 @@ class GameController extends GetxController {
   final RxInt targetValue = AppConstants.defaultTargetValue.obs;
   final RxInt timeRemainingSeconds = 0.obs;
   final RxString gameOverMessage = ''.obs;
+  final RxBool gameOverNewPersonalBest = false.obs;
 
   final RxList<Tile> tiles = <Tile>[].obs;
 
@@ -52,6 +53,9 @@ class GameController extends GetxController {
   Timer? _timeAttackTimer;
 
   _GameSnapshot? _undoSnapshot;
+
+  /// Best score at the start of this round (used to detect a new record at game over).
+  int _bestScoreAtRoundStart = 0;
 
   bool get _isOverlayBlockingInput =>
       showWinOverlay.value || showGameOverOverlay.value;
@@ -88,6 +92,9 @@ class GameController extends GetxController {
     showGameOverOverlay.value = false;
     hasWon.value = false;
     gameOverMessage.value = '';
+    gameOverNewPersonalBest.value = false;
+
+    _bestScoreAtRoundStart = bestScore.value;
 
     score.value = 0;
     _board = BoardState.empty(AppConstants.boardSize);
@@ -182,6 +189,7 @@ class GameController extends GetxController {
     _pendingGameOverAfterWin = snap.pendingGameOverAfterWin;
     timeRemainingSeconds.value = snap.timeRemainingSeconds;
     gameOverMessage.value = snap.gameOverMessage;
+    gameOverNewPersonalBest.value = snap.gameOverNewPersonalBest;
     canShuffle.value = snap.canShuffle;
 
     tiles.assignAll(_board.tiles);
@@ -232,11 +240,11 @@ class GameController extends GetxController {
 
     showGameOverOverlay.value = false;
     gameOverMessage.value = '';
+    gameOverNewPersonalBest.value = false;
     hasWon.value = _board.tiles.any((t) => t.value >= targetValue.value);
 
     if (!_board.hasValidMoves()) {
-      gameOverMessage.value = 'No moves left. Your score: ${score.value}';
-      showGameOverOverlay.value = true;
+      _presentGameOver(message: 'No moves left. Your score: ${score.value}');
       _stopTimeAttack();
       return;
     }
@@ -258,17 +266,22 @@ class GameController extends GetxController {
     }
 
     if (step.isGameOver) {
-      gameOverMessage.value = 'No moves left. Your score: ${score.value}';
-      showGameOverOverlay.value = true;
+      _presentGameOver(message: 'No moves left. Your score: ${score.value}');
       _stopTimeAttack();
     }
+  }
+
+  void _presentGameOver({required String message}) {
+    gameOverMessage.value = message;
+    gameOverNewPersonalBest.value = score.value > _bestScoreAtRoundStart;
+    showGameOverOverlay.value = true;
   }
 
   void continueAfterWin() {
     showWinOverlay.value = false;
     if (_pendingGameOverAfterWin) {
       _pendingGameOverAfterWin = false;
-      showGameOverOverlay.value = true;
+      _presentGameOver(message: 'No moves left. Your score: ${score.value}');
     }
   }
 
@@ -298,8 +311,7 @@ class GameController extends GetxController {
         timeRemainingSeconds.value = 0;
         timer.cancel();
         _timeAttackTimer = null;
-        gameOverMessage.value = 'Time is up! Your score: ${score.value}';
-        showGameOverOverlay.value = true;
+        _presentGameOver(message: 'Time is up! Your score: ${score.value}');
         return;
       }
       timeRemainingSeconds.value -= 1;
@@ -465,6 +477,7 @@ class _GameSnapshot {
   final bool pendingGameOverAfterWin;
   final int timeRemainingSeconds;
   final String gameOverMessage;
+  final bool gameOverNewPersonalBest;
   final bool canShuffle;
 
   const _GameSnapshot({
@@ -479,6 +492,7 @@ class _GameSnapshot {
     required this.pendingGameOverAfterWin,
     required this.timeRemainingSeconds,
     required this.gameOverMessage,
+    required this.gameOverNewPersonalBest,
     required this.canShuffle,
   });
 
@@ -498,6 +512,7 @@ class _GameSnapshot {
       pendingGameOverAfterWin: controller._pendingGameOverAfterWin,
       timeRemainingSeconds: controller.timeRemainingSeconds.value,
       gameOverMessage: controller.gameOverMessage.value,
+      gameOverNewPersonalBest: controller.gameOverNewPersonalBest.value,
       canShuffle: controller.canShuffle.value,
     );
   }

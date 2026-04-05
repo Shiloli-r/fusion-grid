@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.0+2
+version: 1.1.0+4
 
 environment:
   sdk: ^3.10.8
@@ -40,6 +40,10 @@ dependencies:
   change_app_package_name: ^1.5.0
   flutter_launcher_icons: ^0.14.4
   flutter_native_splash: ^2.4.7
+  share_plus: ^10.1.4
+  in_app_update: ^4.2.5
+  screenshot: ^3.0.0
+  confetti: ^0.8.0
 
 dev_dependencies:
   flutter_test:
@@ -63,10 +67,8 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # To add assets to your application, add an assets section, like this:
-  # assets:
-  #   - images/a_dot_burr.jpeg
-  #   - images/a_dot_ham.jpeg
+  assets:
+    - assets/share/share_background.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -94,14 +96,15 @@ flutter:
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
 
+# Light + dark use the same background so splash is always dark (no white flash on light theme).
 flutter_native_splash:
-  color: "#F5F3FF"
+  color: "#140B24"
   color_dark: "#140B24"
   image: assets/icon/icon.png
   image_dark: assets/icon/icon.png
 
   android_12:
-    color: "#F5F3FF"
+    color: "#140B24"
     color_dark: "#140B24"
     image: assets/icon/icon.png
     image_dark: assets/icon/icon.png

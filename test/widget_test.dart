@@ -13,6 +13,8 @@ void main() {
   testWidgets('Fusion Grid smoke test', (WidgetTester tester) async {
     // Build our app and trigger a frame.
     await tester.pumpWidget(const FusionApp());
+    // HomePage schedules Play in-app update check after 500ms.
+    await tester.pump(const Duration(milliseconds: 600));
 
     // Basic sanity: app renders.
     expect(find.text('Fusion Grid'), findsOneWidget);

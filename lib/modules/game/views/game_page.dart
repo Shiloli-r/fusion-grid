@@ -1,9 +1,11 @@
 import 'dart:math' as math;
 
+import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/services/score_share_service.dart';
 import '../../../core/theme/fusion_colors.dart';
 import '../../../core/widgets/settings_sheet.dart';
 import '../controllers/game_controller.dart';
@@ -26,6 +28,8 @@ class _GamePageState extends State<GamePage> {
   static const double _flickVelocityThreshold = 360;
 
   late final GameController _controller;
+  late final ConfettiController _confettiController;
+  Worker? _celebrationWorker;
 
   @override
   void initState() {
@@ -34,6 +38,19 @@ class _GamePageState extends State<GamePage> {
     final modeId = args is Map<String, dynamic> ? args['modeId'] as String? : null;
     final mode = GameModes.fromId(modeId);
     _controller = Get.put(GameController(mode: mode));
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+    _celebrationWorker = ever(_controller.gameOverNewPersonalBest, (dynamic v) {
+      if (v == true && mounted) {
+        _confettiController.play();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _celebrationWorker?.dispose();
+    _confettiController.dispose();
+    super.dispose();
   }
 
   Offset? _start;
@@ -264,6 +281,17 @@ class _GamePageState extends State<GamePage> {
                       ),
                     ),
                   ),
+                  IconButton(
+                    tooltip: 'Share score',
+                    onPressed: () {
+                      Get.find<ScoreShareService>().shareSession(
+                        sessionScore: _controller.score.value,
+                        bestScore: _controller.bestScore.value,
+                        modeTitle: _controller.mode.title,
+                      );
+                    },
+                    icon: const Icon(Icons.share_rounded, color: Colors.white70),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -325,6 +353,7 @@ class _GamePageState extends State<GamePage> {
                   ),
                   const SizedBox(width: 4),
                   SettingsButton(
+                    tooltip: 'Sound & vibration',
                     onPressedOverride: () {
                       showSettingsSheet();
                     },
@@ -454,8 +483,36 @@ class _GamePageState extends State<GamePage> {
                           gameOverMessage: _controller.gameOverMessage.value,
                           score: _controller.score.value,
                           bestScore: _controller.bestScore.value,
+                          newPersonalBest: _controller.gameOverNewPersonalBest.value,
+                          onShareScore: () {
+                            Get.find<ScoreShareService>().shareSession(
+                              sessionScore: _controller.score.value,
+                              bestScore: _controller.bestScore.value,
+                              modeTitle: _controller.mode.title,
+                            );
+                          },
                           onContinue: _controller.continueAfterWin,
                           onRestart: _confirmNewGame,
+                        ),
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: ConfettiWidget(
+                            confettiController: _confettiController,
+                            blastDirectionality: BlastDirectionality.explosive,
+                            shouldLoop: false,
+                            emissionFrequency: 0.06,
+                            numberOfParticles: 24,
+                            maxBlastForce: 40,
+                            minBlastForce: 14,
+                            gravity: 0.3,
+                            colors: const <Color>[
+                              FusionColors.accent,
+                              FusionColors.accent2,
+                              FusionColors.good,
+                              Colors.white,
+                            ],
+                          ),
                         ),
                       ),
                     ],
