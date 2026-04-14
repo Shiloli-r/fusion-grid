@@ -48,8 +48,14 @@ class _HomePageState extends State<HomePage> {
                   IconButton(
                     tooltip: 'Share best score',
                     onPressed: () async {
-                      final best = await Get.find<StorageService>().getBestScore();
-                      await Get.find<ScoreShareService>().shareBestScore(best);
+                      final best = await Get.find<StorageService>()
+                          .getBestRun(modeId: GameModes.classic.id);
+                      await Get.find<ScoreShareService>().shareBestRun(
+                        modeTitle: GameModes.classic.title,
+                        bestScore: best.score,
+                        bestSteps: best.steps,
+                        bestDurationSeconds: best.durationSeconds,
+                      );
                     },
                     icon: const Icon(Icons.share_rounded, color: Colors.white70),
                   ),

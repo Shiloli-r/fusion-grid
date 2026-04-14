@@ -15,32 +15,77 @@ class ScoreShareService {
 
   bool _shareInFlight = false;
 
-  Future<void> shareBestScore(int bestScore) async {
+  Future<void> shareBestRun({
+    required String modeTitle,
+    required int bestScore,
+    required int bestSteps,
+    required int bestDurationSeconds,
+  }) async {
     await _shareImage(
       caption: bestScore > 0
-          ? 'My $appName best score is $bestScore. Can you beat it?'
-          : 'Playing $appName — beat my next high score!',
-      child: HighScoreShareCard(bestScore: bestScore),
+          ? 'My $appName ($modeTitle) best score is $bestScore — $bestSteps steps in ${_formatDuration(bestDurationSeconds)}.'
+          : 'Playing $appName ($modeTitle) — beat my next high score!',
+      child: HighScoreShareCard(
+        modeTitle: modeTitle,
+        bestScore: bestScore,
+        bestSteps: bestSteps,
+        bestDurationSeconds: bestDurationSeconds,
+      ),
     );
   }
 
   Future<void> shareSession({
     required int sessionScore,
     required int bestScore,
+    required int sessionSteps,
+    required int sessionDurationSeconds,
+    required int bestSteps,
+    required int bestDurationSeconds,
     required String modeTitle,
   }) async {
     await _shareImage(
-      caption: '$appName — ${modeScoreLine(sessionScore, bestScore)}',
+      caption: '$appName ($modeTitle) — $sessionScore points • $sessionSteps steps • ${_formatDuration(sessionDurationSeconds)}',
       child: HighScoreShareCard(
-        bestScore: bestScore,
-        sessionScore: sessionScore,
         modeTitle: modeTitle,
+        bestScore: bestScore,
+        bestSteps: bestSteps,
+        bestDurationSeconds: bestDurationSeconds,
+        sessionScore: sessionScore,
+        sessionSteps: sessionSteps,
+        sessionDurationSeconds: sessionDurationSeconds,
       ),
     );
   }
 
-  String modeScoreLine(int sessionScore, int bestScore) {
-    return 'This run: $sessionScore · Best: $bestScore. Think you can top it?';
+  Future<void> shareWin({
+    required String modeTitle,
+    required int targetValue,
+    required int sessionScore,
+    required int sessionSteps,
+    required int sessionDurationSeconds,
+    required int bestScore,
+    required int bestSteps,
+    required int bestDurationSeconds,
+  }) async {
+    await _shareImage(
+      caption:
+          'I reached $targetValue in $appName ($modeTitle)! Score: $sessionScore • $sessionSteps steps • ${_formatDuration(sessionDurationSeconds)}',
+      child: HighScoreShareCard(
+        modeTitle: modeTitle,
+        bestScore: bestScore,
+        bestSteps: bestSteps,
+        bestDurationSeconds: bestDurationSeconds,
+        sessionScore: sessionScore,
+        sessionSteps: sessionSteps,
+        sessionDurationSeconds: sessionDurationSeconds,
+      ),
+    );
+  }
+
+  String _formatDuration(int totalSeconds) {
+    final mm = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
   }
 
   void _dismissShareLoading() {

@@ -8,6 +8,7 @@ import 'package:vibration/vibration.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/controllers/settings_controller.dart';
 import '../../../data/models/app_settings.dart';
+import '../../../data/models/best_run.dart';
 import '../../../data/services/storage_service.dart';
 import '../engine/game_engine.dart';
 import '../models/board_state.dart';
@@ -24,6 +25,10 @@ class GameController extends GetxController {
   // Reactive UI state.
   final RxInt score = 0.obs;
   final RxInt bestScore = 0.obs;
+  final RxInt bestSteps = 0.obs;
+  final RxInt bestDurationSeconds = 0.obs;
+  final RxInt steps = 0.obs;
+  final RxInt elapsedSeconds = 0.obs;
 
   final RxBool showWinOverlay = false.obs;
   final RxBool showGameOverOverlay = false.obs;
@@ -51,6 +56,7 @@ class GameController extends GetxController {
   bool _pendingGameOverAfterWin = false;
   bool? _hasVibrator;
   Timer? _timeAttackTimer;
+  Timer? _elapsedTimer;
 
   _GameSnapshot? _undoSnapshot;
 
@@ -77,12 +83,32 @@ class GameController extends GetxController {
   }
 
   Future<void> _loadBestScoreAndStartNewGame() async {
-    bestScore.value = await _storage.getBestScore();
+    await _migrateLegacyBestIfNeeded();
+    final bestRun = await _storage.getBestRun(modeId: mode.id);
+    bestScore.value = bestRun.score;
+    bestSteps.value = bestRun.steps;
+    bestDurationSeconds.value = bestRun.durationSeconds;
     restartGame(showSpawnAnimation: true);
+  }
+
+  Future<void> _migrateLegacyBestIfNeeded() async {
+    // One-time migration: old versions stored a single global best score.
+    final legacy = await _storage.getLegacyBestScore();
+    if (legacy <= 0) return;
+
+    final existing = await _storage.getBestRun(modeId: GameModes.classic.id);
+    if (existing.score < legacy) {
+      await _storage.setBestRun(
+        modeId: GameModes.classic.id,
+        run: BestRun(score: legacy, steps: existing.steps, durationSeconds: existing.durationSeconds),
+      );
+    }
+    await _storage.clearLegacyBestScore();
   }
 
   void restartGame({bool showSpawnAnimation = true}) {
     _stopTimeAttack();
+    _stopElapsedTimer();
     _pendingGameOverAfterWin = false;
     _latestEffectClearToken = 0;
     _undoSnapshot = null;
@@ -97,6 +123,8 @@ class GameController extends GetxController {
     _bestScoreAtRoundStart = bestScore.value;
 
     score.value = 0;
+    steps.value = 0;
+    elapsedSeconds.value = 0;
     _board = BoardState.empty(AppConstants.boardSize);
     _nextTileId = 1;
     _moveToken = 1;
@@ -123,6 +151,7 @@ class GameController extends GetxController {
     }
 
     _startTimeAttackIfNeeded();
+    _startElapsedTimer();
   }
 
   void onSwipe(MoveDirection direction) {
@@ -151,12 +180,14 @@ class GameController extends GetxController {
     _undoSnapshot = snapshot;
     canUndo.value = true;
 
+    steps.value += 1;
+
     _board = result.board;
     _nextTileId = result.nextTileId;
 
     if (result.scoreDelta > 0) {
       score.value += result.scoreDelta;
-      _maybeUpdateBestScore();
+      _maybeUpdateBestRun();
     }
 
     if (result.didMerge) {
@@ -178,6 +209,8 @@ class GameController extends GetxController {
 
     _board = snap.board;
     score.value = snap.score;
+    steps.value = snap.steps;
+    elapsedSeconds.value = snap.elapsedSeconds;
 
     showWinOverlay.value = snap.showWinOverlay;
     showGameOverOverlay.value = snap.showGameOverOverlay;
@@ -194,6 +227,7 @@ class GameController extends GetxController {
 
     tiles.assignAll(_board.tiles);
     _ensureTimeAttackTimerRunning();
+    _ensureElapsedTimerRunning();
   }
 
   void useShufflePowerUp() {
@@ -250,6 +284,7 @@ class GameController extends GetxController {
     }
 
     _ensureTimeAttackTimerRunning();
+    _resumeElapsedTimerIfNeeded();
   }
 
   void _handleWinAndGameOver({required GameStepResult step}) {
@@ -275,6 +310,8 @@ class GameController extends GetxController {
     gameOverMessage.value = message;
     gameOverNewPersonalBest.value = score.value > _bestScoreAtRoundStart;
     showGameOverOverlay.value = true;
+    _stopElapsedTimer();
+    _maybeUpdateBestRun();
   }
 
   void continueAfterWin() {
@@ -282,7 +319,9 @@ class GameController extends GetxController {
     if (_pendingGameOverAfterWin) {
       _pendingGameOverAfterWin = false;
       _presentGameOver(message: 'No moves left. Your score: ${score.value}');
+      return;
     }
+    _resumeElapsedTimerIfNeeded();
   }
 
   void onNewGamePressed() {
@@ -323,12 +362,39 @@ class GameController extends GetxController {
     _timeAttackTimer = null;
   }
 
-  void _maybeUpdateBestScore() async {
-    final newBest = score.value;
-    if (newBest <= bestScore.value) return;
+  void _maybeUpdateBestRun() async {
+    final currentScore = score.value;
+    if (currentScore <= bestScore.value) return;
 
-    bestScore.value = newBest;
-    await _storage.setBestScore(newBest);
+    final run = BestRun(score: currentScore, steps: steps.value, durationSeconds: elapsedSeconds.value);
+    bestScore.value = currentScore;
+    bestSteps.value = run.steps;
+    bestDurationSeconds.value = run.durationSeconds;
+    await _storage.setBestRun(modeId: mode.id, run: run);
+  }
+
+  void _startElapsedTimer() {
+    _ensureElapsedTimerRunning();
+  }
+
+  void _ensureElapsedTimerRunning() {
+    if (_elapsedTimer != null) return;
+    if (_isOverlayBlockingInput) return;
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_isOverlayBlockingInput) return;
+      elapsedSeconds.value += 1;
+    });
+  }
+
+  void _resumeElapsedTimerIfNeeded() {
+    if (_isOverlayBlockingInput) return;
+    if (_elapsedTimer != null) return;
+    _ensureElapsedTimerRunning();
+  }
+
+  void _stopElapsedTimer() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
   }
 
   Future<void> _playMergeFeedback() async {
@@ -459,6 +525,7 @@ class GameController extends GetxController {
   @override
   void onClose() {
     _stopTimeAttack();
+    _stopElapsedTimer();
     super.onClose();
   }
 }
@@ -466,6 +533,8 @@ class GameController extends GetxController {
 class _GameSnapshot {
   final BoardState board;
   final int score;
+  final int steps;
+  final int elapsedSeconds;
 
   final bool showWinOverlay;
   final bool showGameOverOverlay;
@@ -483,6 +552,8 @@ class _GameSnapshot {
   const _GameSnapshot({
     required this.board,
     required this.score,
+    required this.steps,
+    required this.elapsedSeconds,
     required this.showWinOverlay,
     required this.showGameOverOverlay,
     required this.hasWon,
@@ -503,6 +574,8 @@ class _GameSnapshot {
     return _GameSnapshot(
       board: board,
       score: controller.score.value,
+      steps: controller.steps.value,
+      elapsedSeconds: controller.elapsedSeconds.value,
       showWinOverlay: controller.showWinOverlay.value,
       showGameOverOverlay: controller.showGameOverOverlay.value,
       hasWon: controller.hasWon.value,

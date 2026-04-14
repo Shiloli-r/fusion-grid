@@ -10,6 +10,7 @@ class GameOverlay extends StatelessWidget {
   final bool canShuffle;
   final VoidCallback? onUndo;
   final VoidCallback? onShuffle;
+  final VoidCallback? onShareWin;
   final int targetValue;
   final String? gameOverMessage;
   final VoidCallback onContinue;
@@ -27,6 +28,7 @@ class GameOverlay extends StatelessWidget {
     required this.canShuffle,
     required this.onUndo,
     required this.onShuffle,
+    this.onShareWin,
     required this.targetValue,
     this.gameOverMessage,
     required this.onContinue,
@@ -108,7 +110,17 @@ class GameOverlay extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    if (!showWin && newPersonalBest && onShareScore != null) ...<Widget>[
+                    if (showWin && onShareWin != null) ...<Widget>[
+                      FusionPrimaryButton(
+                        text: 'Share',
+                        onPressed: onShareWin,
+                      ),
+                      const SizedBox(height: 12),
+                      FusionSecondaryButton(
+                        text: 'Continue',
+                        onPressed: onContinue,
+                      ),
+                    ] else if (!showWin && newPersonalBest && onShareScore != null) ...<Widget>[
                       FusionPrimaryButton(
                         text: 'Share score',
                         onPressed: onShareScore,
@@ -116,32 +128,7 @@ class GameOverlay extends StatelessWidget {
                       const SizedBox(height: 12),
                     ],
                     if (showWin)
-                      Row(
-                        children: <Widget>[
-                          if (canShuffle && onShuffle != null)
-                            Expanded(
-                              child: FusionSecondaryButton(
-                                text: 'Shuffle',
-                                onPressed: onShuffle!,
-                              ),
-                            ),
-                          if (canShuffle && onShuffle != null) const SizedBox(width: 12),
-                          if (canUndo && onUndo != null)
-                            Expanded(
-                              child: FusionSecondaryButton(
-                                text: 'Undo',
-                                onPressed: onUndo!,
-                              ),
-                            ),
-                          if (canUndo && onUndo != null) const SizedBox(width: 12),
-                          Expanded(
-                            child: FusionSecondaryButton(
-                              text: 'Continue',
-                              onPressed: onContinue,
-                            ),
-                          ),
-                        ],
-                      )
+                      const SizedBox.shrink()
                     else
                       Row(
                         children: <Widget>[

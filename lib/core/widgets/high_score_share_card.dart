@@ -7,14 +7,29 @@ import '../theme/fusion_colors.dart';
 class HighScoreShareCard extends StatelessWidget {
   const HighScoreShareCard({
     super.key,
+    required this.modeTitle,
     required this.bestScore,
+    required this.bestSteps,
+    required this.bestDurationSeconds,
     this.sessionScore,
-    this.modeTitle,
+    this.sessionSteps,
+    this.sessionDurationSeconds,
   });
 
+  final String modeTitle;
   final int bestScore;
+  final int bestSteps;
+  final int bestDurationSeconds;
+
   final int? sessionScore;
-  final String? modeTitle;
+  final int? sessionSteps;
+  final int? sessionDurationSeconds;
+
+  String _formatDuration(int totalSeconds) {
+    final mm = (totalSeconds ~/ 60).toString().padLeft(2, '0');
+    final ss = (totalSeconds % 60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +90,24 @@ class HighScoreShareCard extends StatelessWidget {
                     letterSpacing: 1.2,
                   ),
                 ),
-                const SizedBox(height: 36),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+                  ),
+                  child: Text(
+                    modeTitle,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 28),
                 Text(
                   '$bestScore',
                   style: const TextStyle(
@@ -96,7 +128,19 @@ class HighScoreShareCard extends StatelessWidget {
                     letterSpacing: 3,
                   ),
                 ),
-                if (sessionScore != null) ...<Widget>[
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    _pill(label: 'Steps', value: '$bestSteps'),
+                    const SizedBox(width: 12),
+                    _pill(label: 'Time', value: _formatDuration(bestDurationSeconds)),
+                  ],
+                ),
+
+                if (sessionScore != null &&
+                    sessionSteps != null &&
+                    sessionDurationSeconds != null) ...<Widget>[
                   const SizedBox(height: 48),
                   Text(
                     'This run',
@@ -115,28 +159,56 @@ class HighScoreShareCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                  const SizedBox(height: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: <Widget>[
+                      _pill(label: 'Steps', value: '$sessionSteps'),
+                      const SizedBox(width: 12),
+                      _pill(
+                        label: 'Time',
+                        value: _formatDuration(sessionDurationSeconds!),
+                      ),
+                    ],
+                  ),
                 ],
                 const Spacer(flex: 2),
-                if (modeTitle != null && modeTitle!.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 16),
-                    decoration: BoxDecoration(
-                      color: FusionColors.accent.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.25),
-                      ),
-                    ),
-                    child: Text(
-                      modeTitle!,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pill({required String label, required String value}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(
+            label.toUpperCase(),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.70),
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.3,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: 0.2,
             ),
           ),
         ],

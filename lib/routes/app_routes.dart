@@ -18,6 +18,7 @@ class AppRoutes {
     GetPage<GamePage>(
       name: game,
       page: () => const GamePage(),
+      preventDuplicates: false,
     ),
   ];
 }
